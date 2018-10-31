@@ -1,26 +1,40 @@
 import string
 import random
 import re
+import csv
 
 OPERATORS = [' = ', ' != ', ' is ', ' is not ']
 func_name_len = range(2, 21)
 func_name_chars = list(string.ascii_lowercase)+['_']
 char_weights = [1]*(len(func_name_chars)-1)+[5]
-param_name_len = range(2,11)
+param_name_len = range(3,11)
 n_param = range(1,6)
 
 class GenerateFunctions():
-    def __init__(self, n):
+    def __init__(self, n, meaningful_names=False):
         self.function_string_list = []
         self.test_function_string_list = []
         self.n = n
+        if meaningful_names:
+            self.meaningful_names = True
+            with open('../data/rand_verbs.csv','r') as f:
+                r = csv.reader(f, delimiter=',')
+                self.verbs = [x[0] for x in r]
+            with open('../data/rand_animals.csv', 'r') as f:
+                r = csv.reader(f, delimiter=',')
+                self.animals = [x[0] for x in r]
+        else:
+            self.meaningful_names = False
 
     def rand_func_name(self):
-        #function name cannot start with an underscore
-        first_letter = random.choice(func_name_chars[:-1])
-        s = first_letter + ''.join(random.choices(func_name_chars,
-                                      weights=char_weights,
-                                      k=random.choice(func_name_len)))
+        if self.meaningful_names:
+            s = random.choice(self.verbs) + '_' + random.choice(self.animals)
+        else:
+            #function name cannot start with an underscore
+            first_letter = random.choice(func_name_chars[:-1])
+            s = first_letter + ''.join(random.choices(func_name_chars,
+                                          weights=char_weights,
+                                          k=random.choice(func_name_len)))
         return s
 
     def rand_param_name(self):

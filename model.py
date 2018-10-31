@@ -48,11 +48,20 @@ class UnitTestGenerator():
                 int(line)
                 bin_target.append(1)
             except ValueError:
-                bin_target.append(0)
+                bin_target.append(line)
         return bin_target
 
     def one_hot_encoding_inputs(self, intents, expected_results):
-        exp_res = np.array(self.encode_expected_results(expected_results), dtype='float32')
+        er = self.encode_expected_results(expected_results)
+        exp_res = np.zeros((len(intents), 3), dtype='float32')
+        for i, line in enumerate(er):
+            if line == 1:
+                exp_res[i, 0] = 1.
+            elif line == 'True':
+                exp_res[i, 1] = 1.
+            elif line == 'False':
+                exp_res[i, 2] = 1.
+
         ohe = np.zeros((len(intents), len(self.intent_dict)), dtype='float32')
         for i, x in enumerate(intents):
             ohe[i, self.intent_dict[x]] = 1.
@@ -67,7 +76,7 @@ class UnitTestGenerator():
 
     def training(self, epochs=100, batchsize=8, lw=[1., .2]):
         main_input = Input(shape=(4,), name='main_input')
-        aux_input = Input(shape=(1,), name='aux_input')
+        aux_input = Input(shape=(3,), name='aux_input')
         x = concatenate([main_input, aux_input])
         x = Dense(32, activation='relu')(x)
         x = Dense(32, activation='relu')(x)
@@ -86,10 +95,21 @@ class UnitTestGenerator():
           validation_split=0.2)
 
     def predict(self, text):
-        t_name, fn_sign, intent, exp_res = self.parse_intents(text)
+        t_name, fn_sign, intent, exp_res = self.parse_intents([text])
         in_data, opt_in = self.one_hot_encoding_inputs(intent, exp_res)
         assertion, option = self.model.predict([in_data, opt_in])
-        s = '    def test_' + t_name[0] + '(self):' + self.rev_assertion_dict[np.argmax(assertion)] + '(' + fn_sign[0]
-        s += [x if np.round(option) else '' for x in exp_res][0] + ')'
+        s = '\n    def test_' + t_name[0] + '(self):\n'
+        s += '        self.' +  self.rev_assertion_dict[np.argmax(assertion)] + '('
+        s += fn_sign[0]
+        s += [', ' + x if np.round(option) else '' for x in exp_res][0] + ')'
         return s
 
+    def batch_predict(self, data, source, test):
+        test_function_string_list = [self.predict(x) for x in data]
+        with open(source, 'w') as f:
+            f.writelines(data)
+
+        with open(test, 'w') as f:
+            f.write("from source import *\nimport unittest\n\nclass Test_source(unittest.TestCase):\n")
+            f.writelines(test_function_string_list)
+            f.write('\nif __name__=="__main__":\n    unittest.main()')
